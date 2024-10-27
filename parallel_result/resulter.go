@@ -60,47 +60,62 @@ type ApplyCtxFn[T Resulter] func(ctx context.Context, elem []T) ([]T, error)
 //   - ApplyCtxFn[T]: The ApplyCtxFn function that processes elements and returns a slice of results along with a boolean
 //     indicating success.
 //   - error: An error if the evaluation function or the middle function is nil.
-func MakeBatchFn[T Resulter](eval_fn EvalResultFn[T], mid_fn ApplyCtxFn[T]) (RunErrFn[T], error) {
-	if eval_fn == nil {
-		return nil, common.NewErrNilParam("eval_fn")
+func MakeBatchFn[T Resulter](evalFn EvalResultFn[T], midFn ApplyCtxFn[T]) (internal.RunErrFn[T], error) {
+	if evalFn == nil {
+		return nil, common.NewErrNilParam("evalFn")
 	}
 
-	batch_fn := func(ctx context.Context, ch chan internal.Pair[T], elem T) error {
-		if ch == nil {
-			return common.NewErrNilParam("ch")
-		}
+	var batchFn internal.RunErrFn[T]
 
-		results, err := eval_fn(elem)
-		if err != nil {
-			return err
-		} else if len(results) == 0 {
-			return nil
-		}
+	if midFn == nil {
+		batchFn = func(ctx context.Context, ch chan internal.Pair[T], elem T) error {
+			if ch == nil {
+				return common.NewErrNilParam("ch")
+			}
 
-		if mid_fn == nil {
+			results, err := evalFn(elem)
+			if err != nil {
+				return err
+			} else if len(results) == 0 {
+				return nil
+			}
+
 			ch <- internal.NewPair(results)
 			return nil
 		}
+	} else {
+		batchFn = func(ctx context.Context, ch chan internal.Pair[T], elem T) error {
+			if ch == nil {
+				return common.NewErrNilParam("ch")
+			}
 
-		valids, invalids := internal.Split(results)
-		if len(valids) == 0 {
-			ch <- internal.NewInvalidPair(invalids)
+			results, err := evalFn(elem)
+			if err != nil {
+				return err
+			} else if len(results) == 0 {
+				return nil
+			}
+
+			valids, invalids := internal.Split(results)
+			if len(valids) == 0 {
+				ch <- internal.NewInvalidPair(invalids)
+				return nil
+			}
+
+			res, err := midFn(ctx, valids)
+			if err == nil {
+				ch <- internal.NewPair(res)
+				return nil
+			} else if err != ErrInvalidResult {
+				return err
+			}
+
+			ch <- internal.NewInvalidPair(res)
 			return nil
 		}
-
-		res, err := mid_fn(ctx, valids)
-		if err == nil {
-			ch <- internal.NewPair(res)
-			return nil
-		} else if err != ErrInvalidResult {
-			return err
-		}
-
-		ch <- internal.NewInvalidPair(res)
-		return nil
 	}
 
-	return batch_fn, nil
+	return batchFn, nil
 }
 
 // resultListener listens to a channel of Pair[T] and separates the results into
@@ -118,26 +133,25 @@ func MakeBatchFn[T Resulter](eval_fn EvalResultFn[T], mid_fn ApplyCtxFn[T]) (Run
 // the sols slice. If a non_sols slice is provided, it appends results from
 // invalid pairs to it. If a valid result is found, it clears the non_sols
 // slice and sets it to nil.
-func resultListener[T Resulter](ch <-chan internal.Pair[T], sols, non_sols *[]T) error {
+func resultListener[T Resulter](ch <-chan internal.Pair[T], valid_sols, invalid_sols *[]T) error {
 	if ch == nil {
 		return nil
-	} else if sols == nil {
+	} else if valid_sols == nil {
 		return common.NewErrNilParam("sols")
-	} else if non_sols == nil {
+	} else if invalid_sols == nil {
 		return common.NewErrNilParam("non_sols")
 	}
 
 	for p := range ch {
 		if p.IsValid {
-			*sols = append(*sols, p.Results...)
+			*valid_sols = append(*valid_sols, p.Results...)
 
-			if non_sols != nil {
-				clear(*non_sols)
-				*non_sols = nil
-				non_sols = nil
+			if *invalid_sols != nil {
+				clear(*invalid_sols)
+				*invalid_sols = nil
 			}
-		} else if non_sols != nil {
-			*non_sols = append(*non_sols, p.Results...)
+		} else if *invalid_sols != nil {
+			*invalid_sols = append(*invalid_sols, p.Results...)
 		}
 	}
 
@@ -157,12 +171,14 @@ func resultListener[T Resulter](ch <-chan internal.Pair[T], sols, non_sols *[]T)
 //   - ApplyCtxFn[T]: The ApplyCtxFn function that processes elements and returns a slice of results along with a boolean
 //     indicating success.
 //   - error: An error if the evaluation function is nil.
-func Evaluate[T Resulter](batch_fn RunErrFn[T]) ApplyCtxFn[T] {
-	fn := func(parent context.Context, elems []T) ([]T, error) {
+func Evaluate[T Resulter](batchFn internal.RunErrFn[T]) (ApplyCtxFn[T], error) {
+	if batchFn == nil {
+		return nil, common.NewErrNilParam("batch_fn")
+	}
+
+	applyFn := func(parent context.Context, elems []T) ([]T, error) {
 		if len(elems) == 0 {
 			return nil, nil
-		} else if batch_fn == nil {
-			return nil, common.NewErrNilParam("batch_fn")
 		}
 
 		ch := make(chan internal.Pair[T], len(elems))
@@ -170,28 +186,29 @@ func Evaluate[T Resulter](batch_fn RunErrFn[T]) ApplyCtxFn[T] {
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		var sols, non_sols []T
+		var valid_sols []T
+		invalid_sols := make([]T, 0, len(elems))
 
 		go func() {
 			defer wg.Done()
 
-			_ = resultListener(ch, &sols, &non_sols)
+			_ = resultListener(ch, &valid_sols, &invalid_sols)
 		}()
 
-		err := ExecuteBatch(parent, ch, elems, batch_fn)
+		err := ExecuteBatch(parent, ch, elems, batchFn)
 
 		close(ch)
 
 		wg.Wait()
 
 		if err != nil {
-			return append(sols, non_sols...), err
-		} else if len(sols) > 0 {
-			return sols, nil
+			return append(valid_sols, invalid_sols...), err
+		} else if len(valid_sols) > 0 {
+			return valid_sols, nil
 		} else {
-			return non_sols, ErrInvalidResult
+			return invalid_sols, ErrInvalidResult
 		}
 	}
 
-	return fn
+	return applyFn, nil
 }

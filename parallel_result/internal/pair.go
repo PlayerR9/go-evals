@@ -1,5 +1,7 @@
 package internal
 
+import "context"
+
 // Pair is a struct that represents a pair of results.
 type Pair[T interface{ HasError() bool }] struct {
 	// Results is a slice of Results.
@@ -47,3 +49,12 @@ func NewInvalidPair[T interface{ HasError() bool }](invalids []T) Pair[T] {
 		IsValid: false,
 	}
 }
+
+// RunErrFn is a function that executes a function and returns an error.
+//
+// Parameters:
+//   - fn: The function to execute.
+//
+// Returns:
+//   - error: An error if the execution fails.
+type RunErrFn[T interface{ HasError() bool }] func(ctx context.Context, ch chan Pair[T], elem T) error

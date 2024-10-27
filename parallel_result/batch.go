@@ -14,15 +14,6 @@ import (
 // RunFn is a function that executes a function.
 type RunFn func()
 
-// RunErrFn is a function that executes a function and returns an error.
-//
-// Parameters:
-//   - fn: The function to execute.
-//
-// Returns:
-//   - error: An error if the execution fails.
-type RunErrFn[T Resulter] func(ctx context.Context, ch chan internal.Pair[T], elem T) error
-
 // ExecuteBatch is a function that runs a batch of functions concurrently.
 //
 // Parameters:
@@ -32,7 +23,7 @@ type RunErrFn[T Resulter] func(ctx context.Context, ch chan internal.Pair[T], el
 //
 // Returns:
 //   - error: An error if any of the functions return an error.
-func ExecuteBatch[T Resulter](parent context.Context, ch chan internal.Pair[T], elems []T, run_fn RunErrFn[T]) error {
+func ExecuteBatch[T Resulter](parent context.Context, ch chan internal.Pair[T], elems []T, run_fn internal.RunErrFn[T]) error {
 	if parent == nil {
 		return common.NewErrNilParam("parent")
 	} else if len(elems) == 0 {
