@@ -134,15 +134,17 @@ func MakeApplyFn[T Result](runFn internal.RunFn[T]) (ApplyOnValidsFn[T], error) 
 			if err != nil {
 				err := fmt.Errorf("index %d: %w", i, err)
 				errs = append(errs, err)
-			} else if p.IsValid {
-				valid_sols = append(valid_sols, p.Results...)
+			} else if p != nil {
+				if p.IsValid {
+					valid_sols = append(valid_sols, p.Results...)
 
-				if invalid_sols != nil {
-					clear(invalid_sols)
-					invalid_sols = nil
+					if invalid_sols != nil {
+						clear(invalid_sols)
+						invalid_sols = nil
+					}
+				} else if invalid_sols != nil {
+					invalid_sols = append(invalid_sols, p.Results...)
 				}
-			} else if invalid_sols != nil {
-				invalid_sols = append(invalid_sols, p.Results...)
 			}
 		}
 
