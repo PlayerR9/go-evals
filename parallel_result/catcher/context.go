@@ -23,7 +23,12 @@ func fromContext[T any](ctx context.Context) (*Context[T], error) {
 		return nil, common.NewErrNilParam("ctx")
 	}
 
-	c, ok := ctx.Value(contextKey{}).(*Context[T])
+	value := ctx.Value(contextKey{})
+	if value == nil {
+		return nil, common.NewErrBadParam("ctx", "must contain a *Context[T]")
+	}
+
+	c, ok := value.(*Context[T])
 	if !ok {
 		return nil, common.NewErrBadParam("ctx", "must contain a *Context[T]")
 	}
@@ -99,13 +104,8 @@ func (c *Context[T]) clear() {
 		return
 	}
 
-	zero := *new(T)
-
-	for i := range c.elems {
-		c.elems[i] = zero
-	}
-
-	c.elems = c.elems[:0]
+	clear(c.elems)
+	c.elems = nil
 }
 
 // getElems returns a copy of the elements stored in the context.
@@ -124,7 +124,7 @@ func (c *Context[T]) getElems() []T {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.elems == nil {
+	if len(c.elems) == 0 {
 		return nil
 	}
 

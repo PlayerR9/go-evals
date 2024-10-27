@@ -47,13 +47,3 @@ func NewInvalidPair[T interface{ HasError() bool }](invalids []T) Pair[T] {
 		IsValid: false,
 	}
 }
-
-// RunFn is a function that takes a result and returns a pair of results.
-//
-// Parameters:
-//   - elem: The result to evaluate.
-//
-// Returns:
-//   - *Pair[T]: The pair of results.
-//   - error: An error if the evaluation fails.
-type RunFn[T interface{ HasError() bool }] func(elem T) (*Pair[T], error)

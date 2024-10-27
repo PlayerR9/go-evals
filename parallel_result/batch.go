@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/PlayerR9/go-evals/common"
-	"github.com/PlayerR9/go-evals/result/catcher"
-	"github.com/PlayerR9/go-evals/result/internal"
+	"github.com/PlayerR9/go-evals/parallel_result/catcher"
+	"github.com/PlayerR9/go-evals/parallel_result/internal"
 )
 
 // RunFn is a function that executes a function.
@@ -75,12 +75,7 @@ func ExecuteBatch[T Resulter](parent context.Context, ch chan internal.Pair[T], 
 	fns = fns[:len(fns):len(fns)]
 
 	// 3. Run the functions.
-	act, err := catcher.ListenCh(errCh)
-	if err != nil {
-		return err
-	}
-
-	err = catcher.Run(ctx, act)
+	err := catcher.Run(ctx, catcher.ListenCh(errCh))
 	if err != nil {
 		return err
 	}
@@ -98,12 +93,10 @@ func ExecuteBatch[T Resulter](parent context.Context, ch chan internal.Pair[T], 
 
 	var errs []error
 
-	act, err = catcher.GetElems(&errs)
-	if err != nil {
-		return err
-	}
-
-	err = catcher.Run(ctx, catcher.Wait[error](), act)
+	err = catcher.Run(ctx,
+		catcher.Wait[error](),
+		catcher.GetElems(&errs),
+	)
 	if err != nil {
 		return err
 	}

@@ -25,15 +25,13 @@ func (act *listenChAct[T]) Run(ctx context.Context) error {
 
 	c.wg.Add(1)
 
-	fn := func() {
+	go func() {
 		defer c.wg.Done()
 
 		for elem := range act.ch {
 			_ = c.addElem(elem)
 		}
-	}
-
-	go fn()
+	}()
 
 	return nil
 }
@@ -45,16 +43,15 @@ func (act *listenChAct[T]) Run(ctx context.Context) error {
 //   - ch: The channel to listen to.
 //
 // Returns:
-//   - contexts.Action: An action that listens to the channel.
-//   - error: An error if the channel is nil.
-func ListenCh[T any](ch <-chan T) (Action, error) {
+//   - contexts.Action: An action that listens to the channel. Nil if ch is nil.
+func ListenCh[T any](ch <-chan T) Action {
 	if ch == nil {
-		return nil, common.NewErrNilParam("ch")
+		return nil
 	}
 
 	return &listenChAct[T]{
 		ch: ch,
-	}, nil
+	}
 }
 
 // sendElemAct is an action that sends an element on a channel.
@@ -123,16 +120,15 @@ func (act *getElems[T]) Run(ctx context.Context) error {
 //
 // Returns:
 //   - contexts.Action: An action that gets all elements from the catcher and stores
-//     them in the destination.
-//   - error: An error if the destination is nil.
-func GetElems[T any](dest *[]T) (Action, error) {
+//     them in the destination. nil if dest is nil.
+func GetElems[T any](dest *[]T) Action {
 	if dest == nil {
-		return nil, common.NewErrNilParam("dest")
+		return nil
 	}
 
 	return &getElems[T]{
 		dest: dest,
-	}, nil
+	}
 }
 
 // waitAct is an action that waits for the catcher to be done listening to the
