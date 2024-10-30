@@ -154,3 +154,23 @@ func (eos ErrRorSol[T]) Errors() []error {
 func (eos ErrRorSol[T]) Sols() []T {
 	return eos.sols.BuildAll()
 }
+
+// ChangeOrder changes the order in which elements are returned when methods such as
+// `Sols` or `Errors` are called.
+//
+// Parameters:
+//   - is_ascending: Whether to return elements in descending or ascending order.
+//     If true, elements are returned in ascending order, otherwise in descending order.
+//
+// Returns:
+//   - error: An error if the receiver is nil.
+func (eos *ErrRorSol[T]) ChangeOrder(is_ascending bool) error {
+	if eos == nil {
+		return common.ErrNilReceiver
+	}
+
+	eos.errs.ChangeOrder(is_ascending)
+	eos.sols.ChangeOrder(is_ascending)
+
+	return nil
+}
