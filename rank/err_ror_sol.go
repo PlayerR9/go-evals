@@ -2,17 +2,30 @@ package rank
 
 import "github.com/PlayerR9/go-evals/common"
 
-// ErrOrSol is a data structure that holds not only a list of solutions, but also a list of errors.
-// If at least one solution is given, the list of errors is ignored and emptied.
-//
-// An empty ErrOrSol can either be created with the `var eos ErrOrSol[T]` syntax or with the
-// `new(ErrOrSol[T])` constructor.
-type ErrOrSol[T any] struct {
+// ErrRorSol is a data structure that holds not only a list of solutions
+// according to their rank, but also a list of errors according to their
+// their own separated ranking. If at least one solution is given, the
+// list of errors is ignored and emptied.
+type ErrRorSol[T any] struct {
 	// errs is the list of errors.
-	errs []error
+	errs *Rank[error]
 
 	// sols is the list of solutions.
-	sols []T
+	sols *Rank[T]
+}
+
+// NewErrRorSol creates and returns a new instance of ErrRorSol.
+// The returned instance is initialized with an empty list of errors
+// and no solutions.
+//
+// Returns:
+//   - *ErrRorSol[T]: A new instance of ErrRorSol with a dedicated
+//     ranking for errors, ready to use. Never returns nil.
+func NewErrRorSol[T any]() *ErrRorSol[T] {
+	return &ErrRorSol[T]{
+		errs: new(Rank[error]),
+		sols: nil,
+	}
 }
 
 // Size returns the size of the EOS.
@@ -21,39 +34,39 @@ type ErrOrSol[T any] struct {
 //   - int: The size of the EOS. If there are solutions,
 //     their size is returned, otherwise, the size of
 //     the errors is returned. Never negative.
-func (eos ErrOrSol[T]) Size() int {
-	if len(eos.sols) > 0 {
-		return len(eos.sols)
+func (eos ErrRorSol[T]) Size() int {
+	if eos.errs == nil {
+		return eos.sols.Size()
 	} else {
-		return len(eos.errs)
+		return eos.errs.Size()
 	}
 }
 
-// IsEmpty checks whether the ErrOrSol EOS is empty.
+// IsEmpty checks whether the ErrRorSol EOS is empty.
 //
 // Returns:
 //   - bool: True if both the solutions and errors are empty, false otherwise.
-func (eos ErrOrSol[T]) IsEmpty() bool {
-	if len(eos.sols) > 0 {
-		return false
+func (eos ErrRorSol[T]) IsEmpty() bool {
+	if eos.errs == nil {
+		return eos.sols.IsEmpty()
+	} else {
+		return eos.errs.IsEmpty()
 	}
-
-	return len(eos.errs) == 0
 }
 
 // Reset resets the EOS for reuse.
-func (eos *ErrOrSol[T]) Reset() {
+func (eos *ErrRorSol[T]) Reset() {
 	if eos == nil {
 		return
 	}
 
 	if eos.errs != nil {
-		clear(eos.errs)
-		eos.errs = make([]error, 0)
+		eos.errs.Reset()
+		eos.errs = new(Rank[error])
 	}
 
 	if eos.sols != nil {
-		clear(eos.sols)
+		eos.sols.Reset()
 		eos.sols = nil
 	}
 }
@@ -62,21 +75,26 @@ func (eos *ErrOrSol[T]) Reset() {
 // the errors are discarded and ignored.
 //
 // Parameters:
+//   - rank: The level of the solution.
 //   - elem: The solution to add.
 //
 // Returns:
 //   - error: An error if the receiver is nil.
-func (eos *ErrOrSol[T]) AddSol(elem T) error {
+func (eos *ErrRorSol[T]) AddSol(rank int, elem T) error {
 	if eos == nil {
 		return common.ErrNilReceiver
 	}
 
-	if len(eos.errs) > 0 {
-		clear(eos.errs)
+	if eos.errs != nil {
+		eos.errs.Reset()
 		eos.errs = nil
 	}
 
-	eos.sols = append(eos.sols, elem)
+	if eos.sols == nil {
+		eos.sols = new(Rank[T])
+	}
+
+	_ = eos.sols.Add(rank, elem)
 
 	return nil
 }
@@ -84,6 +102,7 @@ func (eos *ErrOrSol[T]) AddSol(elem T) error {
 // AddErr adds an error to the EOS.
 //
 // Parameters:
+//   - rank: The level of the error.
 //   - err: The error to add.
 //
 // Returns:
@@ -92,18 +111,18 @@ func (eos *ErrOrSol[T]) AddSol(elem T) error {
 // Behaviors:
 //   - If the error is nil, it is ignored.
 //   - If at least a solution has been added, the error is ignored.
-func (eos *ErrOrSol[T]) AddErr(err error) error {
+func (eos *ErrRorSol[T]) AddErr(rank int, err error) error {
 	if err == nil {
 		return nil
 	} else if eos == nil {
 		return common.ErrNilReceiver
 	}
 
-	if len(eos.sols) > 0 {
+	if eos.errs == nil {
 		return nil
 	}
 
-	eos.errs = append(eos.errs, err)
+	_ = eos.errs.Add(rank, err)
 
 	return nil
 }
@@ -112,36 +131,26 @@ func (eos *ErrOrSol[T]) AddErr(err error) error {
 //
 // Returns:
 //   - bool: True if the EOS has an error, false otherwise.
-func (eos ErrOrSol[T]) HasError() bool {
-	return len(eos.errs) > 0
+func (eos ErrRorSol[T]) HasError() bool {
+	return eos.errs != nil && !eos.errs.IsEmpty()
 }
 
 // Errors returns the list of errors in descending order of rank.
 //
 // Returns:
 //   - []error: The list of errors. Nil if there are no errors.
-func (eos ErrOrSol[T]) Errors() []error {
-	if len(eos.errs) == 0 {
+func (eos ErrRorSol[T]) Errors() []error {
+	if eos.errs == nil {
 		return nil
 	}
 
-	errs := make([]error, len(eos.errs))
-	copy(errs, eos.errs)
-
-	return errs
+	return eos.errs.Build()
 }
 
 // Sols returns the list of solutions in descending order of rank.
 //
 // Returns:
 //   - []T: The list of solutions. Nil if there are no solutions.
-func (eos ErrOrSol[T]) Sols() []T {
-	if len(eos.sols) == 0 {
-		return nil
-	}
-
-	sols := make([]T, len(eos.sols))
-	copy(sols, eos.sols)
-
-	return sols
+func (eos ErrRorSol[T]) Sols() []T {
+	return eos.sols.BuildAll()
 }
