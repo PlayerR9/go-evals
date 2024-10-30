@@ -100,14 +100,14 @@ func (r *Rank[T]) Add(rank int, elem T) error {
 	return nil
 }
 
-// Elem iterates over the elements in the rank in rank order. The order of elements
+// AllElem iterates over the elements in the rank in rank order. The order of elements
 // within a rank is guaranteed to be the same as the order in which they were
 // added. However, the exact order of elements with different ranks is in descending
 // order unless the method `ChangeOrder(true)` is called.
 //
 // Returns:
 //   - iter.Seq2[int, T]: The elements in the rank. Never returns nil.
-func (r Rank[T]) Elem() iter.Seq2[int, T] {
+func (r Rank[T]) AllElem() iter.Seq2[int, T] {
 	if r.size == 0 {
 		return func(yield func(int, T) bool) {}
 	}
@@ -145,6 +145,48 @@ func (r Rank[T]) Elem() iter.Seq2[int, T] {
 	return fn
 }
 
+// Elem iterates over the elements in the rank in rank order. The order of elements
+// within a rank is guaranteed to be the same as the order in which they were
+// added. However, the exact order of elements with different ranks is in descending
+// order unless the method `ChangeOrder(true)` is called.
+//
+// Returns:
+//   - iter.Seq2[int, T]: The elements in the rank. Never returns nil.
+func (r Rank[T]) Elem() iter.Seq2[int, T] {
+	if r.size == 0 {
+		return func(yield func(int, T) bool) {}
+	}
+
+	var fn iter.Seq2[int, T]
+
+	if r.is_ascending {
+		fn = func(yield func(int, T) bool) {
+			rank := r.ranks[0]
+			bucket := r.buckets[rank]
+
+			for _, elem := range bucket {
+				if !yield(rank, elem) {
+					return
+				}
+			}
+		}
+	} else {
+		fn = func(yield func(int, T) bool) {
+			rank := r.ranks[len(r.ranks)-1]
+
+			bucket := r.buckets[rank]
+
+			for _, elem := range bucket {
+				if !yield(rank, elem) {
+					return
+				}
+			}
+		}
+	}
+
+	return fn
+}
+
 // ChangeOrder changes the order in which elements are returned when methods such as
 // `Elem` or `Build` are called.
 //
@@ -164,11 +206,11 @@ func (r *Rank[T]) ChangeOrder(is_ascending bool) error {
 	return nil
 }
 
-// Build is a more efficent way of calling slices.Collect(r.Elem()).
+// BuildAll is a more efficent way of calling slices.Collect(r.Elem()).
 //
 // Returns:
 //   - []T: The slice of elements in the rank. Returns nil if the rank is empty.
-func (r Rank[T]) Build() []T {
+func (r Rank[T]) BuildAll() []T {
 	if r.size == 0 {
 		return nil
 	}
@@ -193,6 +235,34 @@ func (r Rank[T]) Build() []T {
 				slice = append(slice, elem)
 			}
 		}
+	}
+
+	return slice
+}
+
+// Build is a more efficent way of calling slices.Collect(r.Elem()).
+//
+// Returns:
+//   - []T: The slice of elements in the rank. Returns nil if the rank is empty.
+func (r Rank[T]) Build() []T {
+	if r.size == 0 {
+		return nil
+	}
+
+	var rank int
+
+	if r.is_ascending {
+		rank = r.ranks[0]
+	} else {
+		rank = r.ranks[len(r.ranks)-1]
+	}
+
+	bucket := r.buckets[rank]
+
+	slice := make([]T, 0, len(bucket))
+
+	for _, elem := range bucket {
+		slice = append(slice, elem)
 	}
 
 	return slice
