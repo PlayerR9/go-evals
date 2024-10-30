@@ -157,29 +157,20 @@ func (r Rank[T]) Elem() iter.Seq2[int, T] {
 		return func(yield func(int, T) bool) {}
 	}
 
-	var fn iter.Seq2[int, T]
+	var rank int
 
 	if r.is_ascending {
-		fn = func(yield func(int, T) bool) {
-			rank := r.ranks[0]
-			bucket := r.buckets[rank]
-
-			for _, elem := range bucket {
-				if !yield(rank, elem) {
-					return
-				}
-			}
-		}
+		rank = r.ranks[0]
 	} else {
-		fn = func(yield func(int, T) bool) {
-			rank := r.ranks[len(r.ranks)-1]
+		rank = r.ranks[len(r.ranks)-1]
+	}
 
-			bucket := r.buckets[rank]
+	bucket := r.buckets[rank]
 
-			for _, elem := range bucket {
-				if !yield(rank, elem) {
-					return
-				}
+	fn := func(yield func(int, T) bool) {
+		for _, elem := range bucket {
+			if !yield(rank, elem) {
+				return
 			}
 		}
 	}
