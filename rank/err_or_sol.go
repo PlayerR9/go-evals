@@ -154,5 +154,5 @@ func (eos ErrOrSol[T]) Errors() []error {
 // Returns:
 //   - []T: The list of solutions. Nil if there are no solutions.
 func (eos ErrOrSol[T]) Sols() []T {
-	return eos.sols.Build()
+	return eos.sols.BuildAll()
 }
