@@ -1,6 +1,8 @@
 package common
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	// ErrNilReceiver occurs when a method is called on a receiver who was not
