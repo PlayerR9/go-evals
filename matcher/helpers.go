@@ -1,6 +1,7 @@
 package matcher
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 )
@@ -84,24 +85,22 @@ func EitherOrString(elems []string) string {
 
 // Sort removes duplicate strings from the given slice and sorts it in-place.
 //
-// This function only works on a slice of strings.
-//
 // Parameters:
 //   - elems: The slice to sort.
 //
 // Example:
 //
 //	elems := []string{"d", "b", "a", "c", "b", "c"}
-//	common.Sort(&elems) // elems is now []string{"a", "b", "c", "d"}
-func Sort(elems *[]string) {
-	if elems == nil || len(*elems) == 0 {
-		return
+//	elems = common.Sort(elems) // elems is now []string{"a", "b", "c", "d"}
+func Sort[T cmp.Ordered](elems []T) []T {
+	if len(elems) < 2 {
+		return elems
 	}
 
-	unique := make([]string, 0, len(*elems))
+	unique := make([]T, 0, len(elems))
 
-	for _, elem := range *elems {
-		pos, ok := slices.BinarySearch(*elems, elem)
+	for _, elem := range elems {
+		pos, ok := slices.BinarySearch(elems, elem)
 		if ok {
 			continue
 		}
@@ -109,10 +108,7 @@ func Sort(elems *[]string) {
 		unique = slices.Insert(unique, pos, elem)
 	}
 
-	size := len(unique)
+	unique = unique[:len(unique):len(unique)]
 
-	unique = unique[:size:size]
-
-	clear((*elems)[size:])
-	*elems = unique
+	return unique
 }

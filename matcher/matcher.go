@@ -1,7 +1,13 @@
 package matcher
 
-import "github.com/PlayerR9/go-evals/common"
+import (
+	"errors"
 
+	"github.com/PlayerR9/go-evals/common"
+	"github.com/PlayerR9/go-evals/rank"
+)
+
+// Matcher is an interface for matching elements.
 type Matcher[I comparable] interface {
 	// Match attempts to match the given element with the Matcher.
 	//
@@ -16,11 +22,11 @@ type Matcher[I comparable] interface {
 	//   - any other error: If the match fails, for whatever reason.
 	Match(elem I) error
 
-	// Matched returns the matched characters as a slice of runes. The returned slice is
+	// Matched returns the matched elements as a slice of elements. The returned slice is
 	// a copy and is valid until the next call to Reset or Match.
 	//
 	// Returns:
-	//   - []I: The matched characters.
+	//   - []I: The matched elements.
 	Matched() []I
 
 	Automaton
@@ -69,4 +75,97 @@ func Execute[I comparable](m Matcher[I], slice []I) ([]I, error) {
 
 	err := m.Close()
 	return m.Matched(), err
+}
+
+// Pair is a pair of indices and matched elements.
+type Pair[I comparable] struct {
+	// Idx is the index of the Matcher that successfully matched the elements.
+	Idx int
+
+	// Matched is the matched elements.
+	Matched []I
+}
+
+// Match uses the provided matchers to process a sequence of elements. It attempts
+// to match each element with the matchers specified by the indices.
+//
+// Parameters:
+//   - matchers: A slice of Matcher instances to be applied to the elements.
+//   - indices: The initial indices of the matchers to be used for matching.
+//   - elems: The elements to be matched.
+//
+// Returns:
+//   - []Pair[T]: A slice of indices-matched pairs indicating the matchers that successfully
+//     matched the elements.
+//   - error: An error if any matcher fails or if there are issues completing the
+//     matching process.
+//
+// The resulting slice of pairs is sorted from the one that matched the longest
+// to the one that matched the shortest.
+func Match[I comparable](matchers []Matcher[I], indices []int, elems []I) ([]Pair[I], error) {
+	defer func() {
+		for _, m := range matchers {
+			m.Reset()
+		}
+	}()
+
+	eos := rank.NewErrRorSol[int]()
+	var level int
+
+	for _, elem := range elems {
+		if len(indices) == 0 {
+			break
+		}
+
+		var top int
+
+		for _, idx := range indices {
+			m := matchers[idx]
+
+			err := m.Match(elem)
+			if err == nil {
+				indices[top] = idx
+				top++
+			} else if err == ErrMatchDone {
+				_ = eos.AddSol(level, idx)
+			} else {
+				_ = eos.AddErr(level, err)
+			}
+		}
+
+		indices = indices[:top:top]
+		level++
+	}
+
+	for _, idx := range indices {
+		m := matchers[idx]
+
+		err := m.Close()
+		if err != nil {
+			_ = eos.AddErr(level, err)
+		} else {
+			_ = eos.AddSol(level, idx)
+		}
+	}
+
+	if eos.HasError() {
+		return nil, errors.Join(eos.Errors()...)
+	}
+
+	sols := eos.Sols()
+
+	results := make([]Pair[I], 0, len(sols))
+
+	for _, sol := range sols {
+		m := matchers[sol]
+
+		p := Pair[I]{
+			Idx:     sol,
+			Matched: m.Matched(),
+		}
+
+		results = append(results, p)
+	}
+
+	return results, nil
 }

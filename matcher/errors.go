@@ -64,7 +64,7 @@ func (e ErrNotAsExpected) Error() string {
 			elems = append(elems, str)
 		}
 
-		Sort(&elems)
+		elems = Sort(elems)
 
 		if e.Quote {
 			for i := range elems {

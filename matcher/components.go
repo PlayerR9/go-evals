@@ -288,6 +288,39 @@ func Group[I comparable](group_name string, elems []I) Matcher[I] {
 	}
 }
 
+// SortedGroup returns a new matcher that matches a group of elements.
+//
+// Parameters:
+//   - elems: The elements to match.
+//
+// Returns:
+//   - Matcher: The matcher. If no elements are provided, then nil is
+//     returned.
+//
+// If only one character is provided, then the character is matched directly.
+func SortedGroup[I cmp.Ordered](group_name string, elems []I) Matcher[I] {
+	if len(elems) == 0 {
+		return nil
+	}
+
+	elems = Sort(elems)
+
+	if len(elems) == 1 {
+		return Single(elems[0])
+	}
+
+	fn := func(elem I) bool {
+		_, ok := slices.BinarySearch(elems, elem)
+		return ok
+	}
+
+	return &matchFn[I]{
+		group_name: group_name,
+		groupFn:    fn,
+		is_done:    false,
+	}
+}
+
 // matchGreedy is a matcher that matches a given inner Matcher as many times as
 // possible.
 type matchGreedy[I comparable] struct {
