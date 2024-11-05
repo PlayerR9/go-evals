@@ -120,21 +120,39 @@ func MakeApplyFn[T Result](runFn internal.RunFn[T]) (ApplyOnValidsFn[T], error) 
 	}
 
 	fn := func(elems []T) ([]T, error) {
-		if len(elems) == 0 {
+		switch len(elems) {
+		case 0:
 			return nil, nil
-		}
-
-		var valid_sols []T
-		invalid_sols := make([]T, 0)
-
-		var errs []error
-
-		for i, elem := range elems {
-			p, err := runFn(elem)
+		case 1:
+			p, err := runFn(elems[0])
 			if err != nil {
-				err := fmt.Errorf("index %d: %w", i, err)
-				errs = append(errs, err)
-			} else if p != nil {
+				return nil, fmt.Errorf("index 0: %w", err)
+			} else if p == nil {
+				return nil, ErrInvalidResult
+			}
+
+			if p.IsValid {
+				return p.Results, nil
+			} else {
+				return p.Results, ErrInvalidResult
+			}
+		default:
+			var valid_sols []T
+			invalid_sols := make([]T, 0)
+
+			var errs []error
+
+			for i, elem := range elems {
+				p, err := runFn(elem)
+				if err != nil {
+					err := fmt.Errorf("index %d: %w", i, err)
+					errs = append(errs, err)
+
+					continue
+				} else if p == nil {
+					continue
+				}
+
 				if p.IsValid {
 					valid_sols = append(valid_sols, p.Results...)
 
@@ -146,15 +164,15 @@ func MakeApplyFn[T Result](runFn internal.RunFn[T]) (ApplyOnValidsFn[T], error) 
 					invalid_sols = append(invalid_sols, p.Results...)
 				}
 			}
-		}
 
-		err := errors.Join(errs...)
-		if err != nil {
-			return append(valid_sols, invalid_sols...), err
-		} else if len(valid_sols) > 0 {
-			return valid_sols, nil
-		} else {
-			return invalid_sols, ErrInvalidResult
+			err := errors.Join(errs...)
+			if err != nil {
+				return append(valid_sols, invalid_sols...), err
+			} else if len(valid_sols) > 0 {
+				return valid_sols, nil
+			} else {
+				return invalid_sols, ErrInvalidResult
+			}
 		}
 	}
 
