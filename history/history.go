@@ -1,7 +1,7 @@
 package history
 
 import (
-	"fmt"
+	"github.com/PlayerR9/go-evals/common"
 )
 
 // History is a history of events.
@@ -13,15 +13,6 @@ type History[E any] struct {
 	arrow int
 }
 
-// Validate implements the assert.Validater interface.
-func (h History[E]) Validate() error {
-	if h.arrow < 0 || h.arrow > len(h.timeline) {
-		return fmt.Errorf("arrow is not in [%d, %d]", 0, len(h.timeline))
-	}
-
-	return nil
-}
-
 // AppendEvent creates a new history that appends the given event to the timeline.
 // However, the current position in the history is not changed.
 //
@@ -29,50 +20,44 @@ func (h History[E]) Validate() error {
 //   - event: The event to append.
 //
 // Returns:
-//   - *History[E]: The new history. Never returns nil.
-func (h History[E]) AppendEvent(event E) *History[E] {
+//   - History[E]: The new history.
+func (h History[E]) AppendEvent(event E) History[E] {
 	timeline := make([]E, len(h.timeline), len(h.timeline)+1)
 	copy(timeline, h.timeline)
 
 	timeline = append(timeline, event)
 
-	return &History[E]{
+	new_history := History[E]{
 		timeline: timeline,
 		arrow:    h.arrow,
 	}
+
+	return new_history
 }
 
-// Reset resets the history for reuse.
-func (h *History[E]) Reset() {
-	if h == nil {
-		return
-	}
-
-	h.arrow = 0
-}
-
-// Walk returns the next event in the history and true if such an event exists,
-// or the zero value of type E and false otherwise. The current position in the
-// history is incremented if an event is returned.
+// Walk walks the history and returns the next event. If the history is done, it returns
+// an error. If the receiver is nil, it returns an error.
 //
 // Returns:
-//   - E: The next event in the history. Never returns nil.
-//   - bool: True if an event exists, false otherwise.
-func (h *History[E]) Walk() (E, bool) {
+//   - E: The next event in the history.
+//   - error: An error if the history could not be walked.
+//
+// Errors:
+//   - common.ErrNilReceiver: If the receiver is nil.
+//   - ErrExausted: If the history is done.
+func (h *History[E]) Walk() (E, error) {
 	if h == nil {
-		return *new(E), false
+		return *new(E), common.ErrNilReceiver
 	}
 
-	// common.Validate(h)
-
 	if h.arrow == len(h.timeline) {
-		return *new(E), false
+		return *new(E), ErrExausted
 	}
 
 	event := h.timeline[h.arrow]
 	h.arrow++
 
-	return event, true
+	return event, nil
 }
 
 // Events returns a copy of the timeline.

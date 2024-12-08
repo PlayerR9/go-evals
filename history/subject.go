@@ -61,13 +61,19 @@ type Subject[E any] interface {
 // Returns:
 //   - error: An error if the history could not be realigned.
 func realign[E any](history *History[E], subject Subject[E]) error {
-	for _, event := range history.timeline[:history.arrow] {
-		err := subject.ApplyEvent(event)
+	for {
+		event, err := history.Walk()
+		if err != nil {
+			break
+		}
+
+		err = subject.ApplyEvent(event)
 		if err != nil {
 			return err
 		}
 
-		if subject.HasError() {
+		ok := subject.HasError()
+		if ok {
 			return fmt.Errorf("subject has an error: %w", subject.GetError())
 		}
 	}
@@ -88,14 +94,14 @@ func realign[E any](history *History[E], subject Subject[E]) error {
 //   - The given slice of paths is modified in place.
 //   - The given history is modified in place.
 //   - The given slice of paths is sorted in reverse order of when the paths were generated.
-func pushPaths[E any](nexts []E, history **History[E], all_paths *[]*History[E]) {
+func pushPaths[E any](nexts []E, history *History[E], all_paths *[]History[E]) {
 	switch len(nexts) {
 	case 0:
 		// Do nothing.
 	case 1:
 		*history = (*history).AppendEvent(nexts[0])
 	default:
-		paths := make([]*History[E], 0, len(nexts))
+		paths := make([]History[E], 0, len(nexts))
 
 		for _, next := range nexts {
 			path := (*history).AppendEvent(next)
@@ -119,18 +125,18 @@ func pushPaths[E any](nexts []E, history **History[E], all_paths *[]*History[E])
 // Returns:
 //   - error: An error if the subject is nil, or if the subject got an error or is done
 //     before the history could be aligned.
-func executeUntil[E any, S Subject[E]](all_paths *[]*History[E], subject S) (*History[E], error) {
+func executeUntil[E any, S Subject[E]](all_paths *[]History[E], subject S) (History[E], error) {
 	history := (*all_paths)[0]
 	*all_paths = (*all_paths)[1:]
 
-	err := realign(history, subject)
+	err := realign(&history, subject)
 	if err != nil {
 		return history, err
 	}
 
-	event, ok := history.Walk()
-	if ok {
-		err = subject.ApplyEvent(event)
+	event, err := history.Walk()
+	if err == nil {
+		err := subject.ApplyEvent(event)
 		if err != nil {
 			return history, err
 		}
@@ -181,9 +187,9 @@ func Evaluate[E any, S Subject[E]](init_fn func() (S, error)) iter.Seq2[Pair[E, 
 	}
 
 	return func(yield func(Pair[E, S], error) bool) {
-		history := new(History[E])
+		var history History[E]
 
-		all_paths := []*History[E]{history}
+		all_paths := []History[E]{history}
 
 		var invalids []Pair[E, S]
 
