@@ -5,7 +5,7 @@ import (
 )
 
 // EventApplier is an interface for a subject that can walk through a history.
-type EventApplier[E any] interface {
+type EventApplier[E Event] interface {
 	// ApplyEvent applies an event to the subject.
 	//
 	// Parameters:
@@ -27,7 +27,7 @@ type EventApplier[E any] interface {
 //   - error: An error if the shadow could not be created.
 //
 // In most cases, the shadow is just the subject itself in its initial state.
-type ShadowOfFn[E any] func() (EventApplier[E], error)
+type ShadowOfFn[E Event] func() (EventApplier[E], error)
 
 // Simulate returns a sequence of shadow subjects created by applying the events
 // in the history of the given pair to the shadow of its subject. The sequence
@@ -41,16 +41,14 @@ type ShadowOfFn[E any] func() (EventApplier[E], error)
 //     applying an event from the history. Never returns nil.
 //
 // Panics if applying an event to a shadow fails as it should never happen.
-func Simulate[E any](shadowOfFn ShadowOfFn[E], timeline []E, visitFn func(shadow EventApplier[E]) error) error {
+func Simulate[E Event](shadowOfFn ShadowOfFn[E], timeline []E, visitFn func(shadow EventApplier[E]) error) error {
 	if shadowOfFn == nil {
 		return common.NewErrNilParam("shadowOfFn")
 	} else if visitFn == nil {
 		return common.NewErrNilParam("visitFn")
 	}
 
-	shadow, err := shadowOfFn(
-
-	shadow, err := subject.Shadow()
+	shadow, err := shadowOfFn()
 	if err != nil {
 		return err
 	}

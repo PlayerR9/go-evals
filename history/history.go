@@ -5,7 +5,7 @@ import (
 )
 
 // History is a history of events.
-type History[E any] struct {
+type History[E Event] struct {
 	// timeline is the sequence of events in the history.
 	timeline []E
 
@@ -44,10 +44,10 @@ func (h History[E]) Arrow() uint {
 //   - error: An error if there is no current event.
 //
 // Errors:
-//   - ErrNoEvents: If there is no current event.
+//   - ErrHistoryDone: If there is no current event.
 func (h History[E]) PeekEvent() (E, error) {
 	if h.arrow >= uint(len(h.timeline)) {
-		return *new(E), ErrNoEvents
+		return *new(E), ErrTimelineEnded
 	}
 
 	event := h.timeline[h.arrow]
@@ -85,14 +85,14 @@ func (h History[E]) AppendEvent(event E) History[E] {
 //
 // Errors:
 //   - common.ErrNilReceiver: If the receiver is nil.
-//   - ErrExausted: If the history is done.
+//   - ErrHistoryDone: If the history is done.
 func (h *History[E]) Walk() (E, error) {
 	if h == nil {
 		return *new(E), common.ErrNilReceiver
 	}
 
 	if h.arrow >= uint(len(h.timeline)) {
-		return *new(E), ErrExausted
+		return *new(E), ErrTimelineEnded
 	}
 
 	event := h.timeline[h.arrow]

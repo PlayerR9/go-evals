@@ -1,7 +1,7 @@
 package history
 
 // Pair is a pair of a solution and a history.
-type Pair[E any] struct {
+type Pair[E Event] struct {
 	// Subject is the solution.
 	Subject Subject[E]
 
@@ -17,7 +17,7 @@ type Pair[E any] struct {
 //
 // Returns:
 //   - Pair[E]: The new pair.
-func NewPair[E any](solution Subject[E], history []E) Pair[E] {
+func NewPair[E Event](solution Subject[E], history []E) Pair[E] {
 	return Pair[E]{
 		Subject: solution,
 		History: history,

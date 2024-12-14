@@ -3,19 +3,12 @@ package history
 import "errors"
 
 var (
-	// ErrExausted is the error returned when the history's iteration is done.
+	// ErrTimelineEnded is the error returned when the timeline's end is reached.
 	// This error can be checked with the == operator.
 	//
 	// Format:
-	// 	"history is exhausted"
-	ErrExausted error
-
-	// ErrNoEvents occurs when there are no events to peek. This error can be
-	// checked with the == operator.
-	//
-	// Format:
-	// 	"no events to peek"
-	ErrNoEvents error
+	// 	"timeline has ended"
+	ErrTimelineEnded error
 
 	// ErrBreak is an error used to break out of a loop. This error can be checked
 	// with the == operator.
@@ -23,10 +16,17 @@ var (
 	// Format:
 	// 	"break"
 	ErrBreak error
+
+	// ErrEmptyQueue occurs when the queue is empty. This error can be checked with
+	// the == operator.
+	//
+	// Format:
+	// 	"queue is empty"
+	ErrEmptyQueue error
 )
 
 func init() {
-	ErrExausted = errors.New("history is exhausted")
-	ErrNoEvents = errors.New("no events to peek")
+	ErrTimelineEnded = errors.New("timeline has ended")
 	ErrBreak = errors.New("break")
+	ErrEmptyQueue = errors.New("queue is empty")
 }
