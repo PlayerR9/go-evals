@@ -10,7 +10,49 @@ type History[E any] struct {
 	timeline []E
 
 	// arrow is the current position in the history.
-	arrow int
+	arrow uint
+}
+
+// Timeline returns a copy of the timeline of events in the history.
+//
+// Returns:
+//   - []E: A copy of the timeline or nil if empty.
+func (h History[E]) Timeline() []E {
+	if len(h.timeline) == 0 {
+		return nil
+	}
+
+	timeline := make([]E, len(h.timeline))
+	copy(timeline, h.timeline)
+
+	return timeline
+}
+
+// Arrow returns the current position in the history. The position is a 0-indexed
+// offset into the timeline of events.
+//
+// Returns:
+//   - uint: The current position in the history.
+func (h History[E]) Arrow() uint {
+	return h.arrow
+}
+
+// PeekEvent returns the current event in the history without advancing the position.
+//
+// Returns:
+//   - E: The current event in the history.
+//   - error: An error if there is no current event.
+//
+// Errors:
+//   - ErrNoEvents: If there is no current event.
+func (h History[E]) PeekEvent() (E, error) {
+	if h.arrow >= uint(len(h.timeline)) {
+		return *new(E), ErrNoEvents
+	}
+
+	event := h.timeline[h.arrow]
+
+	return event, nil
 }
 
 // AppendEvent creates a new history that appends the given event to the timeline.
@@ -35,8 +77,7 @@ func (h History[E]) AppendEvent(event E) History[E] {
 	return new_history
 }
 
-// Walk walks the history and returns the next event. If the history is done, it returns
-// an error. If the receiver is nil, it returns an error.
+// Walk walks the history and returns the next event.
 //
 // Returns:
 //   - E: The next event in the history.
@@ -50,7 +91,7 @@ func (h *History[E]) Walk() (E, error) {
 		return *new(E), common.ErrNilReceiver
 	}
 
-	if h.arrow == len(h.timeline) {
+	if h.arrow >= uint(len(h.timeline)) {
 		return *new(E), ErrExausted
 	}
 
@@ -58,19 +99,4 @@ func (h *History[E]) Walk() (E, error) {
 	h.arrow++
 
 	return event, nil
-}
-
-// Events returns a copy of the timeline.
-//
-// Returns:
-//   - []E: A copy of the timeline.
-func (h History[E]) Events() []E {
-	if len(h.timeline) == 0 {
-		return nil
-	}
-
-	slice := make([]E, len(h.timeline))
-	copy(slice, h.timeline)
-
-	return slice
 }
