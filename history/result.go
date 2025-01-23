@@ -1,5 +1,7 @@
 package history
 
+////////////////////////////////////////////////////////////////
+
 // Result is the result of a history walk.
 type Result[E Event] struct {
 	// Timeline is the timeline of events.

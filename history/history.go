@@ -6,6 +6,8 @@ import (
 	"github.com/PlayerR9/go-evals/common"
 )
 
+////////////////////////////////////////////////////////////////
+
 // History is a history of events.
 type History[E Event] struct {
 	// timeline is the list of events.

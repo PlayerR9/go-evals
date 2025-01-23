@@ -6,6 +6,8 @@ import (
 	assert "github.com/PlayerR9/go-verify"
 )
 
+////////////////////////////////////////////////////////////////
+
 // Subject is a subject that can be used to process events.
 type Subject[E Event] interface {
 	// HasError checks whether the subject has encountered non-fatal errors.

@@ -10,6 +10,8 @@ import (
 	assert "github.com/PlayerR9/go-verify"
 )
 
+////////////////////////////////////////////////////////////////
+
 // InitFn is a type of function that is used to initialize a subject.
 //
 // Returns:
@@ -207,10 +209,14 @@ func (e *Evaluator[E]) apply() iter.Seq[Result[E]] {
 				return err
 			}
 
-			err = Loop(fn)
-			if err != nil {
-				_ = yield(NewResult(top, subject, fmt.Errorf("doOne() failed: %w", err)))
-				return
+			for {
+				err := fn()
+				if err == ErrBreak {
+					break
+				} else if err != nil {
+					_ = yield(NewResult(top, subject, fmt.Errorf("doOne() failed: %w", err)))
+					return
+				}
 			}
 
 			r := NewResult(top, subject, nil)
