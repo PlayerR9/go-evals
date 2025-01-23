@@ -27,3 +27,37 @@ var (
 	// 	"subject has an error"
 	ErrSubject error = errors.New("subject has an error")
 )
+
+// ErrInvalidType occurs when the type of a value is invalid.
+type ErrInvalidType struct {
+	// Want is the expected type of the value.
+	Want any
+
+	// Got is the actual type of the value.
+	Got any
+}
+
+// Error implements error.
+func (e ErrInvalidType) Error() string {
+	want_str := TypeOf(e.Want)
+	got_str := TypeOf(e.Got)
+
+	return "want " + want_str + ", got " + got_str
+}
+
+// NewErrInvalidType creates a new ErrInvalidType.
+//
+// Parameters:
+//   - got: The actual type of the value.
+//   - want: The expected type of the value.
+//
+// Returns:
+//   - error: The newly created ErrInvalidType error. Never returns nil.
+func NewErrInvalidType(got any, want any) error {
+	e := &ErrInvalidType{
+		Want: want,
+		Got:  got,
+	}
+
+	return e
+}
