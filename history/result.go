@@ -1,7 +1,5 @@
 package history
 
-////////////////////////////////////////////////////////////////
-
 // Result is the result of a history walk.
 type Result[E Event] struct {
 	// Timeline is the timeline of events.
@@ -24,7 +22,7 @@ type Result[E Event] struct {
 // Returns:
 //   - Result[E]: A new result with the given history, subject, and error.
 func NewResult[E Event](history History[E], subject Subject[E], err error) Result[E] {
-	timeline := TimelineOf(history)
+	timeline := history.Timeline()
 
 	result := Result[E]{
 		Timeline: timeline,

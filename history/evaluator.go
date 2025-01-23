@@ -1,16 +1,12 @@
 package history
 
 import (
-	"fmt"
 	"iter"
 	"slices"
 
 	"github.com/PlayerR9/go-evals/common"
 	evres "github.com/PlayerR9/go-evals/result"
-	assert "github.com/PlayerR9/go-verify"
 )
-
-////////////////////////////////////////////////////////////////
 
 // InitFn is a type of function that is used to initialize a subject.
 //
@@ -68,19 +64,19 @@ func NewEvaluator[S Subject[E], E Event](initFn func() (S, error)) (*Evaluator[E
 // If the stack is empty, the function returns an empty History and an error.
 //
 // Returns:
-//   - History[E]: The top history from the stack.
+//   - *History[E]: The top history from the stack.
 //   - error: An error if the stack is empty.
-func (e *Evaluator[E]) pop() (History[E], bool) {
-	assert.NotNil(e, "e")
+func (e *Evaluator[E]) pop() (*History[E], bool) {
+	// assert.NotNil(e, "e")
 
 	if len(e.paths) == 0 {
-		return History[E]{}, false
+		return nil, false
 	}
 
 	history := e.paths[len(e.paths)-1]
 	e.paths = e.paths[:len(e.paths)-1]
 
-	return history, true
+	return &history, true
 }
 
 // push pushes a slice of elements onto the stack in reverse order.
@@ -88,7 +84,7 @@ func (e *Evaluator[E]) pop() (History[E], bool) {
 // Parameters:
 //   - elems: The slice of elements to be pushed. If empty, no elements are pushed.
 func (e *Evaluator[E]) push(elems []History[E]) {
-	assert.NotNil(e, "e")
+	// assert.NotNil(e, "e")
 
 	if len(elems) == 0 {
 		return
@@ -126,8 +122,8 @@ func (e *Evaluator[E]) push(elems []History[E]) {
 //   - any error: The error returned by the subject's NextEvents method or the subject's ApplyEvent
 //     method.
 func (e *Evaluator[E]) applyOnce(subject Subject[E], history History[E]) (History[E], error) {
-	assert.NotNil(e, "e")
-	assert.Cond(subject != nil, "subject != nil")
+	// assert.NotNil(e, "e")
+	// assert.Cond(subject != nil, "subject != nil")
 
 	nexts, err := nextEvents(subject, history)
 	if err != nil {
@@ -144,7 +140,10 @@ func (e *Evaluator[E]) applyOnce(subject Subject[E], history History[E]) (Histor
 	history, err = walkOnce(subject, history)
 	if err != nil {
 		return history, err
-	} else if subject.HasError() {
+	}
+
+	ok := subject.HasError()
+	if ok {
 		return history, ErrBreak
 	}
 
@@ -170,7 +169,7 @@ func (e *Evaluator[E]) applyOnce(subject Subject[E], history History[E]) (Histor
 //   - iter.Seq[Result[E]]: A sequence of Results that contain all possible histories
 //     from the initial state of the subject created by initFn and the empty history.
 func (e *Evaluator[E]) apply() iter.Seq[Result[E]] {
-	assert.NotNil(e, "e")
+	// assert.NotNil(e, "e")
 
 	fn := func(yield func(Result[E]) bool) {
 		var h History[E]
@@ -184,22 +183,27 @@ func (e *Evaluator[E]) apply() iter.Seq[Result[E]] {
 		var invalids []Result[E]
 
 		for {
-			top, ok := e.pop()
+			tmp, ok := e.pop()
 			if !ok {
 				break
 			}
 
-			top = Restart(top)
+			top := *tmp
+
+			_ = top.Restart()
+			// assert.Err(err, "top.Restart()")
 
 			subject, err := e.initFn()
 			if err != nil {
-				_ = yield(NewResult(top, subject, fmt.Errorf("initFn() failed: %w", err)))
+				result := NewResult(top, subject, err)
+				_ = yield(result)
 				return
 			}
 
 			top, err = align(subject, top)
 			if err != nil {
-				_ = yield(NewResult(top, subject, fmt.Errorf("align() failed: %w", err)))
+				result := NewResult(top, subject, err)
+				_ = yield(result)
 				return
 			}
 
@@ -214,22 +218,28 @@ func (e *Evaluator[E]) apply() iter.Seq[Result[E]] {
 				if err == ErrBreak {
 					break
 				} else if err != nil {
-					_ = yield(NewResult(top, subject, fmt.Errorf("doOne() failed: %w", err)))
+					result := NewResult(top, subject, err)
+					_ = yield(result)
 					return
 				}
 			}
 
 			r := NewResult(top, subject, nil)
 
-			if subject.HasError() {
+			ok = subject.HasError()
+			if ok {
 				invalids = append(invalids, r)
-			} else if !yield(r) {
+			}
+
+			ok = yield(r)
+			if !ok {
 				return
 			}
 		}
 
 		for _, r := range invalids {
-			if !yield(r) {
+			ok := yield(r)
+			if !ok {
 				return
 			}
 		}
@@ -287,7 +297,7 @@ func (e *Evaluator[E]) AsSeq() iter.Seq[Result[E]] {
 //   - error: The first error encountered during the execution of the sequence, or
 //     nil if no errors were encountered.
 func (e *Evaluator[E]) execute() ([]Result[E], error) {
-	assert.Cond(e != nil, "e != nil")
+	// assert.Cond(e != nil, "e != nil")
 
 	seq := e.apply()
 
@@ -296,21 +306,22 @@ func (e *Evaluator[E]) execute() ([]Result[E], error) {
 
 	for res := range seq {
 		if res.Error != nil {
-			return builder.Results(), res.Error
+			results := builder.Results()
+			return results, res.Error
 		}
 
 		ok := res.Subject.HasError()
-
 		if !ok {
-			err := builder.AddValid(res)
-			assert.Err(err, "builder.AddValid(res)")
+			_ = builder.AddValid(res)
+			// assert.Err(err, "builder.AddValid(res)")
 		} else {
-			err := builder.AddInvalid(res)
-			assert.Err(err, "builder.AddInvalid(res)")
+			_ = builder.AddInvalid(res)
+			// assert.Err(err, "builder.AddInvalid(res)")
 		}
 	}
 
-	return builder.Results(), nil
+	results := builder.Results()
+	return results, nil
 }
 
 // Execute executes a sequence of Results that contain all valid histories from the

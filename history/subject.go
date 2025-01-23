@@ -1,13 +1,5 @@
 package history
 
-import (
-	"errors"
-
-	assert "github.com/PlayerR9/go-verify"
-)
-
-////////////////////////////////////////////////////////////////
-
 // Subject is a subject that can be used to process events.
 type Subject[E Event] interface {
 	// HasError checks whether the subject has encountered non-fatal errors.
@@ -54,12 +46,12 @@ type Subject[E Event] interface {
 //
 // Errors:
 //   - ErrEOT: If the end of the timeline is reached.
-//   - errors.New("subject has error"): If the subject has errors.
+//   - ErrSubject: If the subject has errors.
 //   - any error: The error returned by the subject's ApplyEvent method.
 func alignOnce[E Event](subject Subject[E], history History[E]) (History[E], error) {
-	assert.Cond(subject != nil, "subject != nil")
+	// assert.Cond(subject != nil, "subject != nil")
 
-	event, err := WalkForward(&history)
+	event, err := history.WalkForward()
 	if err != nil {
 		return history, err
 	}
@@ -67,8 +59,11 @@ func alignOnce[E Event](subject Subject[E], history History[E]) (History[E], err
 	err = subject.ApplyEvent(event)
 	if err != nil {
 		return history, err
-	} else if subject.HasError() {
-		return history, errors.New("subject has error")
+	}
+
+	ok := subject.HasError()
+	if ok {
+		return history, ErrSubject
 	}
 
 	return history, nil
@@ -91,7 +86,7 @@ func alignOnce[E Event](subject Subject[E], history History[E]) (History[E], err
 //   - ErrEOT: If the end of the timeline is reached.
 //   - any error: The error returned by the alignOnce function.
 func align[E Event](subject Subject[E], history History[E]) (History[E], error) {
-	assert.Cond(subject != nil, "subject != nil")
+	// assert.Cond(subject != nil, "subject != nil")
 
 	for {
 		history, err := alignOnce(subject, history)
@@ -121,9 +116,9 @@ func align[E Event](subject Subject[E], history History[E]) (History[E], error) 
 //   - ErrEOT: If the end of the timeline is reached.
 //   - any error: The error returned by the subject's ApplyEvent method.
 func walkOnce[E Event](subject Subject[E], history History[E]) (History[E], error) {
-	assert.Cond(subject != nil, "subject != nil")
+	// assert.Cond(subject != nil, "subject != nil")
 
-	event, err := WalkForward(&history)
+	event, err := history.WalkForward()
 	if err != nil {
 		return history, err
 	}
@@ -149,19 +144,22 @@ func walkOnce[E Event](subject Subject[E], history History[E]) (History[E], erro
 // Errors:
 //   - any error: The error returned by the subject's NextEvents method.
 func nextEvents[E Event](subject Subject[E], history History[E]) ([]History[E], error) {
-	assert.Cond(subject != nil, "subject != nil")
+	// assert.Cond(subject != nil, "subject != nil")
 
 	nexts, err := subject.NextEvents()
 	if err != nil {
 		return nil, err
-	} else if subject.HasError() || len(nexts) == 0 {
+	}
+
+	ok := subject.HasError()
+	if ok || len(nexts) == 0 {
 		return nil, nil
 	}
 
 	next_paths := make([]History[E], 0, len(nexts))
 
 	for _, next := range nexts {
-		path := AppendEvent(history, next)
+		path := history.AppendEvent(next)
 		next_paths = append(next_paths, path)
 	}
 

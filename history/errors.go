@@ -18,4 +18,12 @@ var (
 	// Format:
 	// 	"break"
 	ErrBreak error = errors.New("break")
+
+	// ErrSubject occurs when the subject has an error.
+	//
+	// This error can be checked with the == operator.
+	//
+	// Format:
+	// 	"subject has an error"
+	ErrSubject error = errors.New("subject has an error")
 )

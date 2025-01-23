@@ -2,8 +2,6 @@ package internal
 
 import "github.com/PlayerR9/go-evals/common"
 
-////////////////////////////////////////////////////////////////
-
 // Accumulator is an accumulator for results that can either be valid or invalid; giving
 // priority to valid results.
 //
